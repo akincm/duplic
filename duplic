@@ -1,0 +1,189 @@
+#!/usr/bin/python
+import os, sys
+import getopt
+import hashlib
+import filecmp
+import time
+
+"""
+Duplicates checker
+This program searches through subdirectories and returns a list of all same files separated by a semicolon ";".
+"""
+
+if len(sys.argv) == 1:
+        print("No arguments specified\nUse `simchk -h` for help")
+        sys.exit()
+
+VERSION = "0.5"
+argv = sys.argv[1:]
+opts, args = getopt.getopt(argv, 'm:h', ['method', 'help', 'version'])
+
+dir_data = [] #Will contain a list of all file paths
+
+
+def hash_file(filename):
+   """"This function returns the SHA-1 hash
+   of the file passed into it"""
+
+   # make a hash object
+   h = hashlib.sha1()
+
+   # open file for reading in binary mode
+   with open(filename,'rb') as file:
+
+       # loop till the end of the file
+       chunk = 0
+       while chunk != b'':
+          # read only 1024 bytes at a time
+          chunk = file.read(1024)
+          h.update(chunk)
+
+   # return the hex representation of digest
+   return h.hexdigest()
+
+
+def iterate_dirs(root="null",data=dir_data):
+    """Appends a dictionary with a key value pair of filename and filehash from all the files in the directory and subdirectories."""
+    if root == "null":
+        if relative_directory[0] == "/":
+            root = relative_directory + "/"
+        else:
+            root = "/home/" + os.getlogin() + "/" +  relative_directory +  "/"
+    for i in os.listdir(root):
+        path = root + i
+        try:
+            if os.path.isdir(path):
+                raise IsADirectoryError
+            else:
+                #print("Path is "+ path)
+                data.append(path)
+        except IsADirectoryError:
+            directory = root + i + "/"
+            iterate_dirs(root=directory, data=data)
+            #print("The following is a directory: " + root + i)
+
+
+def hash_dict(paths):
+    """"Returns a dictionary with paths provided as keys and their hashes as values for the key."""
+    hash_table = {}
+    for i in paths:
+        try:
+            file_hash = hash_file(i)
+            hash_table[i] = file_hash
+        except:
+            print(f"Unable to read: ", i)
+    return hash_table
+
+
+def compare_sha(data):
+    """Returns a list of all items in a dictionary with a same key."""
+    checked = []
+    similar_files = []
+    for k in data:
+        if k in checked:
+            pass # Ignore if the item has been already checked
+        else:
+            paths = list()
+            paths.append(k)
+            for kk in data :
+                if k == kk:
+                    pass
+                elif data[kk] == data[k]:
+                    paths.append(kk)
+                    checked.append(kk)
+            if len(paths) > 1: similar_files.append(paths)
+    return similar_files
+
+
+def compare_cmp(data, strict=False):
+    """Compares all the file paths in a list and returns a lists of all same files"""
+    similar_files_list = []
+    checked = []
+    for i in data:
+        if i in checked:
+            pass
+        else:
+            similar_files = []
+            similar_files.append(i)
+            for o in data:
+                try:
+                    if i == o:
+                        pass
+                    elif strict==False:
+                        iex = (i + ".")[-9:].split(".")[1]
+                        oex = (o + ".")[-9:].split(".")[1]
+                        if iex == oex and filecmp.cmp(i, o):
+                            similar_files.append(o)
+                            checked.append(o)
+                        else:
+                            pass # Pass if extensions dont match.
+                    elif filecmp.cmp(i, o):
+                        similar_files.append(o)
+                        checked.append(o)
+                except:
+                    print("Error reading:", i)
+            if len(similar_files) > 1: similar_files_list.append(similar_files)
+    return similar_files_list
+
+
+def return_common_lists(l):
+    """Returns all list items inside another list after separating them with a semicolon ';'. """
+    number = 0
+    for i in l:
+        number += 1
+        print("")
+        print(*i, sep=';')
+
+
+def usage():
+    print(f"Duplic Version {VERSION}\n")
+    print("Usage: duplic [OPTION]... [DIRECTORY]")
+    print("""
+-m  --method <sha:compare>  method to use sha or compare
+-h  --help                  display this help and exit
+--version                   output version information and exit
+
+METHODS
+cmp: Uses the python filecmp module to compare duplicate files.
+sha: Compares the SHA-1 hash files.
+icmp: Same as cmp but only compares files with same file extensions.
+""")
+
+
+if __name__ == "__main__":
+    method = "x"
+    for o, a in opts:
+        if o == "--version":
+            print("Duplic Version {}".format(VERSION))
+            sys.exit()
+        elif o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif o in ("-m", "--method"):
+            arg = a[0].lower()
+            if arg in ["i", "s", "c"]:
+                method = arg
+        else:
+            assert False, "unhandled option"
+    if method == "x":
+        method = "c"
+    try:
+        relative_directory = args[0]
+    except IndexError:
+        print("Bad directory name provided.\nExiting...")
+        sys.exit(1)
+    dir_data = [] #Will contain a list of all file paths
+    print("Populating directories list...")
+    iterate_dirs(data=dir_data)
+    print("Found {} files".format(len(dir_data)))
+    print("Comparing files for similarities...")
+    if method == "c":
+        print("Using cmp")
+        return_common_lists(compare_cmp(dir_data, True))
+    elif method == "i":
+        print("Using intelligent cmp")
+        return_common_lists(compare_cmp(dir_data, False))
+    else:
+        print("Using sha")
+        hashes = hash_dict(dir_data)
+        return_common_lists(compare_sha(hashes))

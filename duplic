@@ -11,7 +11,7 @@ This program searches through subdirectories and returns a list of all same file
 """
 
 if len(sys.argv) == 1:
-        print("No arguments specified\nUse `simchk -h` for help")
+        print("No arguments specified\nUse `duplic -h` for help")
         sys.exit()
 
 VERSION = "0.5"
@@ -139,7 +139,7 @@ def usage():
     print(f"Duplic Version {VERSION}\n")
     print("Usage: duplic [OPTION]... [DIRECTORY]")
     print("""
--m  --method <sha:compare>  method to use sha or compare
+-m  --method <sha:compare:icmp>  method to use sha or compare
 -h  --help                  display this help and exit
 --version                   output version information and exit
 
@@ -176,7 +176,7 @@ if __name__ == "__main__":
     print("Populating directories list...")
     iterate_dirs(data=dir_data)
     print("Found {} files".format(len(dir_data)))
-    print("Comparing files for similarities...")
+    print("Looking for duplicate files...")
     if method == "c":
         print("Using cmp")
         return_common_lists(compare_cmp(dir_data, True))

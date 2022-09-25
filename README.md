@@ -1,11 +1,7 @@
-# simcheck
-A simple python script to search for similar files within sub directories.
+# duplic
+A python script to search for duplicate files within sub directories.
 
-TN: This program only supports files inside your user's home directory.
-
-Please provide feedbacks and pull requests for imporvements.
-
-Usage: simchk [OPTION]... [DIRECTORY]
+Usage: duplic [OPTION]... [DIRECTORY]
 
 -m  --method <sha:compare:icmp>  method to use sha or compare
 -h  --help                  display this help and exit

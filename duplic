@@ -9,6 +9,22 @@ import time
 Duplicates checker
 This program searches through subdirectories and returns a list of all same files separated by a semicolon ";".
 """
+#Detect os Type
+ostype, osep, path = (None, None, None)
+
+if (os.name == "nt"):
+    ostype = "win"
+    osep = "\\"
+    path = "C:\\Users\\"
+
+elif (os.name == "posix"):
+    ostype = "posix"
+    osep = "/"
+    path = "/home/"
+else:
+    print("Unsupported OS.")
+    sys.exit()
+
 
 if len(sys.argv) == 1:
         print("No arguments specified\nUse `duplic -h` for help")
@@ -45,10 +61,17 @@ def hash_file(filename):
 def iterate_dirs(root="null",data=dir_data):
     """Appends a dictionary with a key value pair of filename and filehash from all the files in the directory and subdirectories."""
     if root == "null":
-        if relative_directory[0] == "/":
-            root = relative_directory + "/"
-        else:
-            root = "/home/" + os.getlogin() + "/" +  relative_directory +  "/"
+        if ostype == "posix":
+            if relative_directory[0] == "/":
+                root = relative_directory + "/"
+            else:
+                root = "/home/" + os.getlogin() + "/" +  relative_directory +  "/"
+        elif ostype == "win":
+            if relative_directory[0:3] == "C:\\":
+                root = relative_directory + "\\"
+            else:
+                root = "C:\\Users\\" + os.getlogin() + "\\" +  relative_directory +  "\\"
+            
     for i in os.listdir(root):
         path = root + i
         try:
@@ -58,7 +81,7 @@ def iterate_dirs(root="null",data=dir_data):
                 #print("Path is "+ path)
                 data.append(path)
         except IsADirectoryError:
-            directory = root + i + "/"
+            directory = root + i + osep
             iterate_dirs(root=directory, data=data)
             #print("The following is a directory: " + root + i)
 

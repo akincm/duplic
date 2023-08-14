@@ -10,7 +10,7 @@ Duplicates checker
 This program searches through subdirectories and returns a list of all same files separated by a semicolon ";".
 """
 #Detect os Type
-ostype, osep, path = (None, None, None)
+tot_red_size ,ostype, osep, path = (0, None, None, None)
 
 if (os.name == "nt"):
     ostype = "win"
@@ -30,7 +30,7 @@ if len(sys.argv) == 1:
         print("No arguments specified\nUse `duplic -h` for help")
         sys.exit()
 
-VERSION = "0.5"
+VERSION = "0.7"
 argv = sys.argv[1:]
 opts, args = getopt.getopt(argv, 'm:h', ['method', 'help', 'version'])
 
@@ -71,8 +71,13 @@ def iterate_dirs(root="null",data=dir_data):
                 root = relative_directory + "\\"
             else:
                 root = "C:\\Users\\" + os.getlogin() + "\\" +  relative_directory +  "\\"
-            
-    for i in os.listdir(root):
+    cd_list = ""
+    try:
+        cd_list = os.listdir(root)  
+    except:
+
+        print("Could not access:", root)     
+    for i in cd_list:
         path = root + i
         try:
             if os.path.isdir(path):
@@ -149,13 +154,18 @@ def compare_cmp(data, strict=False):
     return similar_files_list
 
 
+
 def return_common_lists(l):
+    global tot_red_size
     """Returns all list items inside another list after separating them with a semicolon ';'. """
     number = 0
     for i in l:
         number += 1
         print("")
-        print(*i, sep=';')
+        print(*i, sep=';', end="")
+        sin_red_size = (os.path.getsize(i[0])*(len(i)-1))/100000
+        tot_red_size += sin_red_size
+        print(" Size:", (os.path.getsize(i[0])*(len(i)-1))/100000, " Mega Bytes")
 
 
 def usage():
@@ -210,3 +220,4 @@ if __name__ == "__main__":
         print("Using sha")
         hashes = hash_dict(dir_data)
         return_common_lists(compare_sha(hashes))
+    print("Total Redundant size: ", tot_red_size, " Mega Bytes")

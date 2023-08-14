@@ -11,6 +11,6 @@ METHODS
 
 cmp: Uses the python filecmp module to compare files.
 
-sha: Compares the SHA-1 hash files.
+sha: Compares the SHA-1 hash files. (Deprecated)
 
-icmp: Same as cmp but only compares files with same file extensions.
+icmp: Same as cmp but only compares files with same file extensions. (Fast but will skip check for redundant files with different file extensions, though resulting in lower runtimes)

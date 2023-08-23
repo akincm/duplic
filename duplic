@@ -30,7 +30,7 @@ if len(sys.argv) == 1:
         print("No arguments specified\nUse `duplic -h` for help")
         sys.exit()
 
-VERSION = "0.7"
+VERSION = "0.71"
 argv = sys.argv[1:]
 opts, args = getopt.getopt(argv, 'm:h', ['method', 'help', 'version'])
 
@@ -67,7 +67,7 @@ def iterate_dirs(root="null",data=dir_data):
             else:
                 root = "/home/" + os.getlogin() + "/" +  relative_directory +  "/"
         elif ostype == "win":
-            if relative_directory[0:3] == "C:\\":
+            if relative_directory[1:3] == ":\\":
                 root = relative_directory + "\\"
             else:
                 root = "C:\\Users\\" + os.getlogin() + "\\" +  relative_directory +  "\\"
@@ -135,7 +135,7 @@ def compare_cmp(data, strict=False):
             similar_files.append(i)
             for o in data:
                 try:
-                    if i == o:
+                    if i == o or o in checked:
                         pass
                     elif strict==False:
                         iex = (i + ".")[-9:].split(".")[1]
@@ -151,6 +151,7 @@ def compare_cmp(data, strict=False):
                 except:
                     print("Error reading:", i)
             if len(similar_files) > 1: similar_files_list.append(similar_files)
+        checked.append(i)
     return similar_files_list
 
 

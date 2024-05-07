@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import os, sys
+import os, sys, shutil
 import getopt
 import hashlib
 import filecmp
@@ -31,43 +31,39 @@ if len(sys.argv) == 1:
         print("No arguments specified\nUse `duplic -h` for help")
         sys.exit()
 
-VERSION = "0.71"
+VERSION = "0.73"
 argv = sys.argv[1:]
 opts, args = getopt.getopt(argv, 'm:h', ['method', 'help', 'version'])
 
-dir_data = [] #Will contain a list of all file paths
-ls_data = {} #Will contain a key value pair of directory path and a string of all files inside
-
-def iterate_dirs(root="null",data=dir_data,ls_bol = False):
+ls_data = {}
+def iterate_dirs(root="null", rev=False):
     """Appends a dictionary with a key value pair of filename and filehash from all the files in the directory and subdirectories."""
+    global ls_data
+    data = []
+    iter_dirs = []
+    local_lis = {}
     if root == "null":
-        if ostype == "posix":
-            if relative_directory[0] == "/":
-                root = relative_directory + "/"
-            else:
-                root = os.getcwd() + "/" +  relative_directory +  "/"
-        elif ostype == "win":
-            if relative_directory[1:3] == ":\\":
-                root = relative_directory + "\\"
-            else:
-                root = os.getcwd() + "\\" +  relative_directory +  "\\"
+        if (ostype == "posix" and relative_directory[0] == "/") or (ostype == "win" and relative_directory[1:3] == ":\\"):
+            root = relative_directory + osep
+        else:
+            root =  os.getcwd() + osep + relative_directory + osep
     cd_list = []
     try:
-        cd_list = sorted(os.listdir(root))  
-    except:
-        print("Could not access:", root)     
-    iter_dirs = []
+        cd_list = sorted(os.listdir(root),reverse=rev)  
+    except Exception as e:
+        print("Could not access:", root, e)     
     for i in cd_list:
         path = root + i
         if os.path.isdir(path):
-            if ls_bol:
-                ls_data[path] = "".join(sorted(os.listdir(path)))
+            local_lis[path] = "".join(sorted(os.listdir(path)))
             iter_dirs.append(root + i + osep)
         else:
             data.append(path)
     for i in iter_dirs:
-        iterate_dirs(root=i, data=data)
-
+        data = data + iterate_dirs(root=i)[0]
+    ls_data.update(local_lis)
+    return data, local_lis
+    
 def compare_cmp(data, strict=False):
     """Compares all the file paths in a list and returns a lists of all same files"""
     similar_files_list = []
@@ -96,7 +92,7 @@ def compare_cmp(data, strict=False):
                         checked.append(o)
                 except:
                     print("Error reading:", i)
-            if len(similar_files) > 1: similar_files_list.append(similar_files)
+            similar_files_list.append(similar_files)
         checked.append(i)
     return similar_files_list
 
@@ -104,28 +100,80 @@ def return_common_lists(l):
     global tot_red_size
     """Returns all list items inside another list after separating them with a semicolon ';'. """
     for i in l:
-        print("")
-        print(*i, sep=';', end="")
         sin_red_size = (os.path.getsize(i[0])*(len(i)-1)/10e5)
         tot_red_size += sin_red_size
-        print(" Size:", sin_red_size, " Mega Bytes")
     return l
 
-def check_same_dir(lis=ls_data):
-    """INCOMPLETE & USELESS"""
-    simdir = []
-    klist = list(lis.keys())
-    for i in klist:
-        simidir = [i]
-        for j in klist:
-            if i != j and ls_data[i] == ls_data[j]:
-                simidir.append(j)
-                klist.remove(j)
-        simdir.append(simidir)        
-        klist.remove(i)
-    print(simdir)
+simdir = []
 
-def scary_function(l):
+def n_list_dir(dir):
+    ls = list()
+    for i in os.listdir(dir):
+        k = dir + osep + i
+        if os.path.isdir(k):
+            ls.append(k)
+            ls += n_list_dir(k)
+        else:
+            pass
+    return ls
+
+def n_check_two_dir(d1, d2, strict=True):
+    ldir = sorted(os.listdir(d1), reverse=True)
+    if ldir == sorted(os.listdir(d2), reverse=True):
+        for i in ldir:
+            if os.path.isdir(d1+osep+i):
+               if not(n_check_two_dir(d1+osep+i,d2+osep+i)):
+                   return False
+        return True
+    else:
+        return False
+
+def cmp_directory(fdir, sdir,cmp_data):
+    """Compares files in a directory one by one with same name"""
+    for i in os.listdir(fdir):
+        if os.path.isdir(fdir+ osep +i) and not cmp_directory(fdir+osep+i, sdir+osep+i, cmp_dat):
+            return False        
+        file1, file2 =  (fdir + osep + i), (sdir + osep + i)
+        for j in cmp_data:
+            if file1 in j and file2 not in j:
+                return False
+    return True
+finsiml = []
+
+def return_common_dirs(lis, cmp_dat, strict=True):
+    """Returns a list of folders which look similar"""
+    print("Finding duplicate directories")
+    checked = []
+    finsiml = []
+    k = 0
+    lis = list(lis.keys())
+    lis = sorted(lis, reverse=False)
+    k = 0
+    for i in lis:
+        if k < 3:
+           k += 1
+        if i in checked:
+            continue
+        simil = [i]
+        for j in lis:
+           qsame = True
+           if j in checked:
+               continue
+           if i != j and n_check_two_dir(i,j,cmp_dat):
+                    var = cmp_directory(i,j,cmp_dat)
+                    if strict and not(var):
+                        pass
+                    elif qsame and var:
+                        skip = n_list_dir(j)
+                        if len(skip) > 0:
+                            checked += skip
+                        
+                        simil.append(j)
+                        checked.append(j)
+        finsiml.append(simil)
+    return finsiml
+
+def scary_function(l, delete_all=False):
     """Accepts a nested list containing file paths 
     [["pathtofile1", "anotherpathtofile1, "yaptf1"], ["ptf2","aptf2"]]
     where only ptf[n] are kept rest deleted
@@ -133,20 +181,28 @@ def scary_function(l):
     for i in l:
         for j in i:
             if j != i[0]:
-               pass
-               os.remove(j)
-                
+               if delete_all:
+                   r = "y"
+               else:
+                   r = input("Delete " + j + "? y/n: ")[0].lower() 
+               if  r == "y":
+                   os.remove(j)
+                   
 def usage():
     print(f"Duplic Version {VERSION}\n")
     print("Usage: duplic [OPTION]... [DIRECTORY]")
+    print("Please not that this script comes with no warranty whatsoever, use at your own risk")
     print("""
--m  --method <compare:icmp>  method to use sha or compare
+-m  --method <compare:icmp:compare_then_delete>  method to use sha or compare
 -h  --help                  display this help and exit
 --version                   output version information and exit
 
 METHODS
 cmp: Uses the python filecmp module to compare duplicate files.
 icmp: Same as cmp but only compares files with same file extensions.
+compare_then_delete: Same as cmp but deletes redundant files (The file which is outermost in filesystem are kept).
+    [Please not that you need to mention compare_then_delete explicitly to run it]
+    
 """)
 
 
@@ -172,18 +228,41 @@ if __name__ == "__main__":
     except IndexError:
         print("Bad directory name provided.\nExiting...")
         sys.exit(1)
-    dir_data = [] #Will contain a list of all file paths
     print("Populating directories list...")
-    iterate_dirs(data=dir_data)
+    dir_data, garbage1 = iterate_dirs()
     print("Found {} files".format(len(dir_data)))
     print("Looking for duplicate files...")
-    if method == "c":
+
+    if method == "c" and opts[0][1] == "compare_then_delete":
+        result = return_common_lists(compare_cmp(dir_data, True))
+        print("\n"+"Files picked for deletion are")
+        for i in result:
+            k = 1
+            while (k<len(i)):
+                print("\t" + i[k])
+                k += 1
+        response = input("Please type 'CONFIRM' to delete the shown files or 'ONE' to delete files one by one: ")
+        scary_function(result, response == "CONFIRM")
+    elif method == "c" and opts[0][1] == "compare_dirs":
+        cmp_dat = return_common_lists(compare_cmp(dir_data, True))
+        result  = return_common_dirs(ls_data, cmp_dat)
+        r = input("Move redundant dirs? y/n: ")[0].lower()
+        for i in result:
+            if len(i) != 1:
+                if r == "y":
+                    for k in i:
+                        src = k.split(relative_directory)[1]
+                        shutil.move(k, relative_directory+"/MOVED"+str(cepoch)+"/"+src)
+                else:
+                    print(i)
+        
+    elif method == "c":
         print("Using cmp")
-        print("Scary function RUNNING")
-        return_common_lists(compare_cmp(dir_data, True))
+        cmp_dat  = return_common_lists(compare_cmp(dir_data, True))
+        print(cmp_dat)
     elif method == "i":
         print("Using icmp")
-        return_common_lists(compare_cmp(dir_data, False))
-    elif method == "d":
-        scary_function(return_common_lists(compare_cmp(dir_data, True)))
+        cmp_dat = return_common_lists(compare_cmp(dir_data, False))
+        print(cmp_dat)
     print("Total Redundant size: ", tot_red_size, " Mega Bytes")
+    

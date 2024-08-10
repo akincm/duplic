@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 import os, sys, shutil
 import getopt
 import hashlib
@@ -31,11 +31,15 @@ if len(sys.argv) == 1:
         print("No arguments specified\nUse `duplic -h` for help")
         sys.exit()
 
-VERSION = "0.73"
+VERSION = "0.74"
 argv = sys.argv[1:]
 opts, args = getopt.getopt(argv, 'm:h', ['method', 'help', 'version'])
 
 ls_data = {}
+simdir = []
+finsiml = []
+
+
 def iterate_dirs(root="null", rev=False):
     """Appends a dictionary with a key value pair of filename and filehash from all the files in the directory and subdirectories."""
     global ls_data
@@ -96,15 +100,13 @@ def compare_cmp(data, strict=False):
         checked.append(i)
     return similar_files_list
 
-def return_common_lists(l):
+def calc_red_size(l):
     global tot_red_size
-    """Returns all list items inside another list after separating them with a semicolon ';'. """
+    """Calculates the size of redundant files and returns the provided list of files"""
     for i in l:
         sin_red_size = (os.path.getsize(i[0])*(len(i)-1)/10e5)
         tot_red_size += sin_red_size
     return l
-
-simdir = []
 
 def n_list_dir(dir):
     ls = list()
@@ -138,7 +140,6 @@ def cmp_directory(fdir, sdir,cmp_data):
             if file1 in j and file2 not in j:
                 return False
     return True
-finsiml = []
 
 def return_common_dirs(lis, cmp_dat, strict=True):
     """Returns a list of folders which look similar"""
@@ -187,27 +188,32 @@ def scary_function(l, delete_all=False):
                    r = input("Delete " + j + "? y/n: ")[0].lower() 
                if  r == "y":
                    os.remove(j)
-                   
+
+def print_lists(lis):
+    for i in lis:
+        if len(i) > 1:
+            print(i)
+
 def usage():
     print(f"Duplic Version {VERSION}\n")
     print("Usage: duplic [OPTION]... [DIRECTORY]")
     print("Please not that this script comes with no warranty whatsoever, use at your own risk")
     print("""
--m  --method <compare:icmp:compare_then_delete>  method to use sha or compare
+-m  --method <compare:icmp:compare_then_delete:compare_dirs>  method to use
 -h  --help                  display this help and exit
 --version                   output version information and exit
 
 METHODS
 cmp: Uses the python filecmp module to compare duplicate files.
-icmp: Same as cmp but only compares files with same file extensions.
-compare_then_delete: Same as cmp but deletes redundant files (The file which is outermost in filesystem are kept).
-    [Please not that you need to mention compare_then_delete explicitly to run it]
-    
+icmp: Only compares files with same file extensions.
+compare_then_delete: Deletes redundant files (The file which is outermost in filesystem are kept).
+compare_dirs: Checks for redundant directories and moves them to a directory named `MOVED` inside the main directory
+    [Please not that you need to mention compare_then_delete or compare_dirs explicitly to run them]
 """)
 
 
 if __name__ == "__main__":
-    method = "x"
+    method = "compare"
     for o, a in opts:
         if o == "--version":
             print("Duplic Version {}".format(VERSION))
@@ -216,13 +222,10 @@ if __name__ == "__main__":
             usage()
             sys.exit()
         elif o in ("-m", "--method"):
-            arg = a[0].lower()
-            if arg in ["i", "c", "d"]:
-                method = arg
+            if a[0].lower() in ["i", "c", "d"]:
+                method = a.lower()
         else:
-            assert False, "unhandled option"
-    if method == "x":
-        method = "c"
+           assert False, "unhandled option"
     try:
         relative_directory = args[0]
     except IndexError:
@@ -233,8 +236,8 @@ if __name__ == "__main__":
     print("Found {} files".format(len(dir_data)))
     print("Looking for duplicate files...")
 
-    if method == "c" and opts[0][1] == "compare_then_delete":
-        result = return_common_lists(compare_cmp(dir_data, True))
+    if method[0] == "c" and method == "compare_then_delete":
+        result = calc_red_size(compare_cmp(dir_data, True))
         print("\n"+"Files picked for deletion are")
         for i in result:
             k = 1
@@ -243,26 +246,23 @@ if __name__ == "__main__":
                 k += 1
         response = input("Please type 'CONFIRM' to delete the shown files or 'ONE' to delete files one by one: ")
         scary_function(result, response == "CONFIRM")
-    elif method == "c" and opts[0][1] == "compare_dirs":
-        cmp_dat = return_common_lists(compare_cmp(dir_data, True))
+
+    elif method[0] == "c" and method == "compare_dirs":
+        cmp_dat = calc_red_size(compare_cmp(dir_data, True))
         result  = return_common_dirs(ls_data, cmp_dat)
         r = input("Move redundant dirs? y/n: ")[0].lower()
         for i in result:
             if len(i) != 1:
                 if r == "y":
-                    for k in i:
+                    for k in i[1:]:
                         src = k.split(relative_directory)[1]
                         shutil.move(k, relative_directory+"/MOVED"+str(cepoch)+"/"+src)
                 else:
                     print(i)
         
-    elif method == "c":
-        print("Using cmp")
-        cmp_dat  = return_common_lists(compare_cmp(dir_data, True))
-        print(cmp_dat)
-    elif method == "i":
-        print("Using icmp")
-        cmp_dat = return_common_lists(compare_cmp(dir_data, False))
-        print(cmp_dat)
-    print("Total Redundant size: ", tot_red_size, " Mega Bytes")
+    elif method[0] == "c" or method[0] == "i":
+        print("Using " + method[0] + "cmp")
+        cmp_dat  = calc_red_size(compare_cmp(dir_data, (method[0] != "i")))
+        print_lists(cmp_dat)
     
+    print("Total Redundant size: ", tot_red_size, " Mega Bytes")

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os, sys, shutil
 import getopt
-import hashlib
 import filecmp
 import time
 
@@ -11,15 +10,13 @@ This program searches through subdirectories and returns a list of all same file
 """
 cepoch = int(time.time())
 #Detect os Type
-tot_red_size ,ostype, osep, path = (0, None, None, None)
+tot_red_size , osep, path = (0, None, None)
 
 if (os.name == "nt"):
-    ostype = "win"
     osep = "\\"
     path = "C:\\Users\\"
 
 elif (os.name == "posix"):
-    ostype = "posix"
     osep = "/"
     path = "/home/"
 else:
@@ -31,9 +28,9 @@ if len(sys.argv) == 1:
         print("No arguments specified\nUse `duplic -h` for help")
         sys.exit()
 
-VERSION = "0.74"
+VERSION = "0.8"
 argv = sys.argv[1:]
-opts, args = getopt.getopt(argv, 'm:h', ['method', 'help', 'version'])
+opts, args = getopt.getopt(argv, 'a:m:hv', ['method', 'help', 'version', 'action'])
 
 ls_data = {}
 simdir = []
@@ -46,12 +43,9 @@ def iterate_dirs(root="null", rev=False):
     data = []
     iter_dirs = []
     local_lis = {}
-    if root == "null":
-        if (ostype == "posix" and relative_directory[0] == "/") or (ostype == "win" and relative_directory[1:3] == ":\\"):
-            root = relative_directory + osep
-        else:
-            root =  os.getcwd() + osep + relative_directory + osep
     cd_list = []
+    if root == "null":
+        root = relative_directory
     try:
         cd_list = sorted(os.listdir(root),reverse=rev)  
     except Exception as e:
@@ -119,7 +113,7 @@ def n_list_dir(dir):
             pass
     return ls
 
-def n_check_two_dir(d1, d2, strict=True):
+def n_check_two_dir(d1, d2):
     ldir = sorted(os.listdir(d1), reverse=True)
     if ldir == sorted(os.listdir(d2), reverse=True):
         for i in ldir:
@@ -160,7 +154,7 @@ def return_common_dirs(lis, cmp_dat, strict=True):
            qsame = True
            if j in checked:
                continue
-           if i != j and n_check_two_dir(i,j,cmp_dat):
+           if i != j and n_check_two_dir(i,j):
                     var = cmp_directory(i,j,cmp_dat)
                     if strict and not(var):
                         pass
@@ -174,11 +168,19 @@ def return_common_dirs(lis, cmp_dat, strict=True):
         finsiml.append(simil)
     return finsiml
 
-def scary_function(l, delete_all=False):
+def scary_function(l, delete=False, is_dir=False):
     """Accepts a nested list containing file paths 
     [["pathtofile1", "anotherpathtofile1, "yaptf1"], ["ptf2","aptf2"]]
     where only ptf[n] are kept rest deleted
     """
+    response = input("Please type 'CONFIRM' to delete the shown files or 'ONE' to delete files one by one: ")
+    delete_all = (response=="CONFIRM")
+    print("\n"+"Files picked for deletion are")
+    for i in result:
+        k = 1
+        while (k<len(i)):
+            print("\t" + i[k])
+            k += 1
     for i in l:
         for j in i:
             if j != i[0]:
@@ -187,7 +189,20 @@ def scary_function(l, delete_all=False):
                else:
                    r = input("Delete " + j + "? y/n: ")[0].lower() 
                if  r == "y":
-                   os.remove(j)
+                    if delete:
+                        if is_dir:
+                            shutil.rmtree(j)
+                        else:
+                            os.remove(j)
+                    else:
+                        src = os.path.dirname(j).split(relative_directory[:-2])[1]
+                        print(src)
+                        dest = relative_directory+ osep +"MOVED"+str(cepoch)+osep+src
+                        print(dest)
+                        if not os.path.exists(dest):
+                            os.makedirs(dest)
+                        shutil.move(j, dest)
+
 
 def print_lists(lis):
     for i in lis:
@@ -199,23 +214,26 @@ def usage():
     print("Usage: duplic [OPTION]... [DIRECTORY]")
     print("Please not that this script comes with no warranty whatsoever, use at your own risk")
     print("""
--m  --method <compare:icmp:compare_then_delete:compare_dirs>  method to use
+    Example `duplic -m cmp -a move /home/user/Documents`
+-m  --method                method to use See METHODS
+-a  --action                action to take after finding redundant files <move,delete,print>
 -h  --help                  display this help and exit
---version                   output version information and exit
+-v  --version               output version information and exit
+
 
 METHODS
 cmp: Uses the python filecmp module to compare duplicate files.
-icmp: Only compares files with same file extensions.
-compare_then_delete: Deletes redundant files (The file which is outermost in filesystem are kept).
-compare_dirs: Checks for redundant directories and moves them to a directory named `MOVED` inside the main directory
+icmp: Only compares files with same file extensions. (Time efficient)
+dirs: Checks for redundant directories and moves them to a directory named `MOVED` inside the main directory
     [Please not that you need to mention compare_then_delete or compare_dirs explicitly to run them]
 """)
 
 
 if __name__ == "__main__":
     method = "compare"
+    action = "none"
     for o, a in opts:
-        if o == "--version":
+        if o in ("-v" , "--version"):
             print("Duplic Version {}".format(VERSION))
             sys.exit()
         elif o in ("-h", "--help"):
@@ -224,10 +242,17 @@ if __name__ == "__main__":
         elif o in ("-m", "--method"):
             if a[0].lower() in ["i", "c", "d"]:
                 method = a.lower()
+        elif o in ("-a", "--action"):
+            if a[0].lower() in ["m", "d", "n"]:
+                action = a[0].lower()
         else:
            assert False, "unhandled option"
     try:
         relative_directory = args[0]
+        if (os.name == "posix" and relative_directory[0] == "/") or (os.name == "nt" and relative_directory[1:3] == ":\\"):
+            realtive_directory = relative_directory + osep
+        else:
+            relative_directory =  os.getcwd() + osep + relative_directory + osep
     except IndexError:
         print("Bad directory name provided.\nExiting...")
         sys.exit(1)
@@ -236,33 +261,23 @@ if __name__ == "__main__":
     print("Found {} files".format(len(dir_data)))
     print("Looking for duplicate files...")
 
-    if method[0] == "c" and method == "compare_then_delete":
+    if method[0] == "c" or method[0] == "i":
         result = calc_red_size(compare_cmp(dir_data, True))
-        print("\n"+"Files picked for deletion are")
-        for i in result:
-            k = 1
-            while (k<len(i)):
-                print("\t" + i[k])
-                k += 1
-        response = input("Please type 'CONFIRM' to delete the shown files or 'ONE' to delete files one by one: ")
-        scary_function(result, response == "CONFIRM")
+        if action == "d":
+            scary_function(result, True)
+        elif action == "m":
+            scary_function(result)
+        else:
+            print_lists(result)
 
-    elif method[0] == "c" and method == "compare_dirs":
+    elif method[0] == "d":
         cmp_dat = calc_red_size(compare_cmp(dir_data, True))
         result  = return_common_dirs(ls_data, cmp_dat)
-        r = input("Move redundant dirs? y/n: ")[0].lower()
-        for i in result:
-            if len(i) != 1:
-                if r == "y":
-                    for k in i[1:]:
-                        src = k.split(relative_directory)[1]
-                        shutil.move(k, relative_directory+"/MOVED"+str(cepoch)+"/"+src)
-                else:
-                    print(i)
+        if action == "d":
+            scary_function(result, True, is_dir=True)
+        elif action == "m":
+            scary_function(result, is_dir=True)
+        else:
+            print_lists(result)
         
-    elif method[0] == "c" or method[0] == "i":
-        print("Using " + method[0] + "cmp")
-        cmp_dat  = calc_red_size(compare_cmp(dir_data, (method[0] != "i")))
-        print_lists(cmp_dat)
-    
     print("Total Redundant size: ", tot_red_size, " Mega Bytes")

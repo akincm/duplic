@@ -4,20 +4,20 @@ Please note that this script comes with no warranty whatsoever, use at your own 
 
 Usage: duplic [OPTION]... [DIRECTORY]
 
--m  --method {compare,icmp,compare_then_delete,compare_dirs}  method to use
+Example `duplic -m cmp -a move /home/user/Documents`
+
+-m  --method                method to use See METHODS
+
+-a  --action                action to take after finding redundant files <move,delete,print>
 
 -h  --help                  display this help and exit
 
---version                   output version information and exit
+-v  --version               output version information and exit
+
 
 METHODS
-
 cmp: Uses the python filecmp module to compare duplicate files.
 
-icmp: Only compares files with same file extensions.
+icmp: Only compares files with same file extensions. (Time efficient)
 
-compare_then_delete: Deletes redundant files (The file which is outermost in filesystem are kept).
-
-compare_dirs: Checks for redundant directories and moves them to a directory named MOVED inside the main directory
-
-[Please not that you need to mention compare_then_delete or compare_dirs explicitly to run them]
+dirs: Checks for redundant directories and moves them to a directory named `MOVED` inside the main directory
